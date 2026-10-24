@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2-Bladed VAWT, 12-Vane Stator & Endplates 3D Simulation</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080c14;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        
+        .code-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+
+        /* Custom switch slider */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider-round {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #334155;
+            transition: .3s;
+            border-radius: 22px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider-round {
+            background-color: #0284c7;
+        }
+        input:checked + .slider-round:before {
+            transform: translateX(22px);
+        }
+
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #1e293b;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col antialiased select-none">
+
+    <!-- Top Navigation Header -->
+    <header class="h-14 border-b border-slate-800 bg-slate-950/90 px-4 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-sky-500/10 border border-sky-500/30 rounded-lg text-sky-400">
+                <i data-lucide="wind" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-slate-100 text-sm md:text-base tracking-wide flex items-center gap-2">
+                    2-Bladed VAWT Engineering Simulator
+                    <span class="text-xs font-normal text-sky-400 bg-sky-950 border border-sky-800 px-2 py-0.5 rounded-full">3D Blueprint Model</span>
+                </h1>
+                <p class="text-[11px] text-slate-400">Modular Stator Guide Vanes & Rotor Endplate Enhancements</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3 text-xs">
+            <!-- View Mode Buttons -->
+            <button id="toggleWireframe" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 flex items-center gap-1.5 transition">
+                <i data-lucide="box" class="w-4 h-4 text-sky-400"></i>
+                <span id="wireframeBtnText">Blueprint Wireframe</span>
+            </button>
+            <button id="toggleParticles" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 flex items-center gap-1.5 transition">
+                <i data-lucide="waves" class="w-4 h-4 text-teal-400"></i>
+                <span id="particlesBtnText">Wind Stream: ON</span>
+            </button>
+            <button id="resetCameraBtn" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 flex items-center gap-1.5 transition">
+                <i data-lucide="camera" class="w-4 h-4 text-slate-400"></i>
+                <span>Reset View</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+        <!-- 3D Viewport Canvas Container -->
+        <div class="relative flex-1 bg-slate-950 h-full overflow-hidden">
+            <div id="threejs-canvas" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+            <!-- Enhancement Status Banners (Top Center) -->
+            <div class="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col sm:flex-row gap-2 z-10">
+                <div id="vaneBanner" class="glass-panel px-3.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-950/20 flex items-center gap-2.5 shadow-lg backdrop-blur-md">
+                    <div class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" id="vaneIndicatorDot"></div>
+                    <div class="text-xs">
+                        <span class="font-semibold text-slate-200" id="vaneStatusText">12 Guide Vanes: ACTIVE (+35% Cp)</span>
+                    </div>
+                </div>
+                <div id="endplateBanner" class="glass-panel px-3.5 py-1.5 rounded-xl border border-indigo-500/40 bg-indigo-950/20 flex items-center gap-2.5 shadow-lg backdrop-blur-md">
+                    <div class="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" id="endplateIndicatorDot"></div>
+                    <div class="text-xs">
+                        <span class="font-semibold text-slate-200" id="endplateStatusText">Rotor Endplates: ACTIVE (+15% Cp)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overlaid Live Telemetry Cards (Top Left inside canvas) -->
+            <div class="absolute top-4 left-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5 pointer-events-none z-10 max-w-xl">
+                <div class="glass-panel p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Electrical Output</span>
+                    <div class="text-lg font-bold text-sky-400 code-font flex items-baseline gap-1 mt-0.5">
+                        <span id="statPower">0.0</span> <span class="text-xs text-slate-400 font-normal">W</span>
+                    </div>
+                </div>
+                <div class="glass-panel p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Rotor Speed</span>
+                    <div class="text-lg font-bold text-emerald-400 code-font flex items-baseline gap-1 mt-0.5">
+                        <span id="statRPM">0</span> <span class="text-xs text-slate-400 font-normal">RPM</span>
+                    </div>
+                </div>
+                <div class="glass-panel p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Torque</span>
+                    <div class="text-lg font-bold text-amber-400 code-font flex items-baseline gap-1 mt-0.5">
+                        <span id="statTorque">0.0</span> <span class="text-xs text-slate-400 font-normal">N·m</span>
+                    </div>
+                </div>
+                <div class="glass-panel p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Daily Energy</span>
+                    <div class="text-lg font-bold text-purple-400 code-font flex items-baseline gap-1 mt-0.5">
+                        <span id="statEnergy">0.00</span> <span class="text-xs text-slate-400 font-normal">kWh</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blueprint Dimension Reference Badge (Bottom Left inside canvas) -->
+            <div class="absolute bottom-4 left-4 glass-panel p-3 rounded-xl border border-slate-800 text-xs hidden md:block z-10 max-w-xs">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-1 mb-2">
+                    <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+                        <i data-lucide="file-text" class="w-3.5 h-3.5 text-sky-400"></i> Technical Spec Sheet
+                    </span>
+                </div>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-400 code-font">
+                    <div>Rotor Blades: <span class="text-sky-300">2 Scoop Blades</span></div>
+                    <div>Turbine Height: <span class="text-slate-200">0.800 m</span></div>
+                    <div>Rotor Dia ($D$): <span class="text-slate-200">0.440 m</span></div>
+                    <div>Guide Vanes: <span class="text-amber-300">12 Blades (30°)</span></div>
+                    <div>Endplates: <span class="text-indigo-300">Top & Bottom Disks</span></div>
+                    <div>Arm Segment: <span class="text-slate-200">0.170 m</span></div>
+                    <div>Cup Arc: <span class="text-slate-200">R0.0492 m</span></div>
+                    <div>Shaft Diameter: <span class="text-slate-200">0.030 m</span></div>
+                </div>
+            </div>
+
+            <!-- Viewport Overlay Controls Guide -->
+            <div class="absolute bottom-4 right-4 text-[10px] text-slate-500 glass-panel px-2.5 py-1 rounded-lg">
+                Left Drag: Orbit | Right Drag: Pan | Scroll: Zoom
+            </div>
+        </div>
+
+        <!-- Sidebar Controls & Analysis -->
+        <div class="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-slate-800 bg-slate-900/90 flex flex-col overflow-y-auto shrink-0">
+            
+            <!-- Sidebar Header Tabs -->
+            <div class="p-3 border-b border-slate-800 bg-slate-950/40 flex gap-2">
+                <button id="tabControls" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                    Controls & Features
+                </button>
+                <button id="tabGraphs" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-slate-200 border border-transparent">
+                    Performance Curves
+                </button>
+            </div>
+
+            <!-- Panel 1: Parameter Controls & Engineering Inputs -->
+            <div id="controlsContainer" class="p-4 space-y-4">
+
+                <!-- Enhancement Toggles Group -->
+                <div class="space-y-2">
+                    <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> Aerodynamic Enhancements
+                    </h3>
+
+                    <!-- 1. Guide Vane Stator Toggle -->
+                    <div class="glass-panel p-3 rounded-xl border border-amber-500/30 bg-amber-950/10 space-y-1">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-amber-500/20 text-amber-400">
+                                    <i data-lucide="shield" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-bold text-slate-100">12-Blade Guide Vane Stator</h4>
+                                    <p class="text-[10px] text-slate-400">Outer Stator Duct Array</p>
+                                </div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="guideVaneToggle" checked>
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80 leading-relaxed">
+                            Concentrates incoming airflow directly into advancing scoops (+35% $C_p$).
+                        </div>
+                    </div>
+
+                    <!-- 2. Endplates Toggle (NEW FEATURE) -->
+                    <div class="glass-panel p-3 rounded-xl border border-indigo-500/30 bg-indigo-950/10 space-y-1">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                                    <i data-lucide="disc" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-bold text-slate-100">Rotor Circular Endplates</h4>
+                                    <p class="text-[10px] text-slate-400">Top & Bottom End Loss Disks</p>
+                                </div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="endplateToggle" checked>
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80 leading-relaxed">
+                            Prevents top/bottom blade spanwise tip vortex leakage (+15% $C_p$).
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wind Speed Control -->
+                <div class="glass-panel p-3.5 rounded-xl space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="font-medium text-slate-200 flex items-center gap-1.5">
+                            <i data-lucide="wind" class="w-4 h-4 text-sky-400"></i> Wind Speed ($v$)
+                        </label>
+                        <div class="code-font text-sky-400 font-semibold text-sm">
+                            <input type="number" id="windSpeedInput" min="0" max="30" step="0.1" value="8.0" class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right text-xs text-sky-400 focus:outline-none focus:border-sky-500"> m/s
+                        </div>
+                    </div>
+                    <input type="range" id="windSpeedSlider" min="0" max="30" step="0.1" value="8.0" class="w-full">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                        <span>0 m/s</span>
+                        <span>12 m/s (Breeze)</span>
+                        <span>30 m/s (Gale)</span>
+                    </div>
+                </div>
+
+                <!-- Rotor Geometry Controls -->
+                <div class="glass-panel p-3.5 rounded-xl space-y-3">
+                    <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-between border-b border-slate-800 pb-1.5">
+                        <span class="flex items-center gap-1.5"><i data-lucide="ruler" class="w-3.5 h-3.5 text-amber-400"></i> Rotor Dimensions</span>
+                        <span class="text-[10px] text-slate-500 lowercase">Editable</span>
+                    </h3>
+
+                    <!-- Height H -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Turbine Height ($H$)</span>
+                            <span class="code-font text-slate-200"><span id="heightVal">0.80</span> m</span>
+                        </div>
+                        <input type="range" id="heightSlider" min="0.30" max="2.50" step="0.05" value="0.80" class="w-full">
+                    </div>
+
+                    <!-- Radius R & Diameter -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Rotor Radius ($R$) [Dia $D$: <span id="diaVal">0.44</span>m]</span>
+                            <span class="code-font text-slate-200"><span id="radiusVal">0.22</span> m</span>
+                        </div>
+                        <input type="range" id="radiusSlider" min="0.10" max="1.00" step="0.01" value="0.22" class="w-full">
+                    </div>
+
+                    <!-- Shaft Diameter -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Central Shaft Dia</span>
+                            <span class="code-font text-slate-200"><span id="shaftVal">0.030</span> m</span>
+                        </div>
+                        <input type="range" id="shaftSlider" min="0.010" max="0.080" step="0.005" value="0.030" class="w-full">
+                    </div>
+                </div>
+
+                <!-- Aerodynamic & Environmental Inputs -->
+                <div class="glass-panel p-3.5 rounded-xl space-y-3">
+                    <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-between border-b border-slate-800 pb-1.5">
+                        <span class="flex items-center gap-1.5"><i data-lucide="sliders" class="w-3.5 h-3.5 text-emerald-400"></i> Aerodynamics & Generator</span>
+                    </h3>
+
+                    <!-- Baseline Power Coefficient Cp -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Baseline $C_p$ (Bare Rotor)</span>
+                            <span class="code-font text-slate-200"><span id="cpVal">0.20</span></span>
+                        </div>
+                        <input type="range" id="cpSlider" min="0.08" max="0.30" step="0.01" value="0.20" class="w-full">
+                    </div>
+
+                    <!-- Tip Speed Ratio lambda -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Tip Speed Ratio ($\lambda$)</span>
+                            <span class="code-font text-slate-200"><span id="tsrVal">1.10</span></span>
+                        </div>
+                        <input type="range" id="tsrSlider" min="0.40" max="2.50" step="0.05" value="1.10" class="w-full">
+                    </div>
+
+                    <!-- Air Density -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Air Density ($\rho$)</span>
+                            <span class="code-font text-slate-200"><span id="rhoVal">1.225</span> kg/m³</span>
+                        </div>
+                        <input type="range" id="rhoSlider" min="0.900" max="1.400" step="0.005" value="1.225" class="w-full">
+                    </div>
+
+                    <!-- Generator Efficiency -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Generator Efficiency ($\eta$)</span>
+                            <span class="code-font text-slate-200"><span id="effVal">85</span>%</span>
+                        </div>
+                        <input type="range" id="effSlider" min="40" max="98" step="1" value="85" class="w-full">
+                    </div>
+                </div>
+
+                <!-- Detailed Computed Physics Summary Table -->
+                <div class="glass-panel p-3.5 rounded-xl space-y-2">
+                    <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1.5 flex justify-between">
+                        <span>Derived Engineering Physics</span>
+                        <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-400"></i>
+                    </h3>
+                    <div class="divide-y divide-slate-800 text-xs">
+                        <div class="py-1.5 flex justify-between">
+                            <span class="text-slate-400">Effective Power Coeff. ($C_{p,eff}$)</span>
+                            <span id="calcEffectiveCp" class="code-font text-sky-400 font-medium">0.300</span>
+                        </div>
+                        <div class="py-1.5 flex justify-between">
+                            <span class="text-slate-400">Combined Boost Multiplier</span>
+                            <span id="calcBoostTotal" class="code-font text-emerald-400 font-medium">+50%</span>
+                        </div>
+                        <div class="py-1.5 flex justify-between">
+                            <span class="text-slate-400">Rotor Swept Area ($A = 2RH$)</span>
+                            <span id="calcArea" class="code-font text-slate-200 font-medium">0.352 m²</span>
+                        </div>
+                        <div class="py-1.5 flex justify-between">
+                            <span class="text-slate-400">Theoretical Wind Power ($P_{wind}$)</span>
+                            <span id="calcPWind" class="code-font text-slate-200 font-medium">110.4 W</span>
+                        </div>
+                        <div class="py-1.5 flex justify-between">
+                            <span class="text-slate-400">Rotational Speed ($\omega$)</span>
+                            <span id="calcOmega" class="code-font text-slate-200 font-medium">40.0 rad/s</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Panel 2: Performance Graphs (Hidden by tab switch) -->
+            <div id="graphsContainer" class="p-4 space-y-4 hidden">
+                <div class="glass-panel p-3 rounded-xl">
+                    <h4 class="text-xs font-medium text-slate-300 mb-2">Power Output Comparison ($P_{elec}$ vs Wind Speed)</h4>
+                    <div class="h-52 w-full">
+                        <canvas id="powerCurveChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-3 rounded-xl">
+                    <h4 class="text-xs font-medium text-slate-300 mb-2">Dynamic RPM Telemetry</h4>
+                    <div class="h-36 w-full">
+                        <canvas id="liveRpmChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-[11px] text-slate-400 leading-relaxed space-y-1">
+                    <div class="text-sky-400 font-semibold">Aerodynamic Enhancement Physics:</div>
+                    <p>• <strong>Endplates (+15%)</strong>: Eliminate tip vortices at top/bottom blade edges, keeping air trapped inside the bucket curve.</p>
+                    <p>• <strong>12 Guide Vanes (+35%)</strong>: Funnels incoming ambient wind directly into the advancing bucket while shielding the returning blade from opposing drag.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Application Scripting Logic -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Global State & Engineering Parameters
+        const params = {
+            windSpeed: 8.0,       // m/s
+            height: 0.80,         // m (Blueprint spec 0.800m)
+            radius: 0.22,         // m (Blueprint radius 0.22m, outer dia 0.44m)
+            shaftDia: 0.030,      // m (Blueprint spec 0.030m shaft)
+            rho: 1.225,           // kg/m3 (Air density)
+            tsr: 1.10,            // Tip Speed Ratio
+            cpBaseline: 0.20,     // Bare open rotor power coefficient
+            vaneBoostPct: 35,     // +35% boost from 12 guide vanes
+            endplateBoostPct: 15, // +15% boost from top/bottom endplates
+            efficiency: 0.85,     // Generator efficiency (85%)
+            guideVanesActive: true,// Guide vane state toggle
+            endplatesActive: true, // Endplates state toggle (NEW)
+            wireframe: false,
+            particles: true
+        };
+
+        // Computed Physics Outputs
+        let calculated = {
+            area: 0,
+            effectiveCp: 0,
+            boostTotalPct: 0,
+            rpm: 0,
+            pWind: 0,
+            pElec: 0,
+            torque: 0,
+            energyDay: 0,
+            omega: 0
+        };
+
+        // UI Element References
+        const windSpeedSlider = document.getElementById('windSpeedSlider');
+        const windSpeedInput = document.getElementById('windSpeedInput');
+        const heightSlider = document.getElementById('heightSlider');
+        const radiusSlider = document.getElementById('radiusSlider');
+        const shaftSlider = document.getElementById('shaftSlider');
+        const rhoSlider = document.getElementById('rhoSlider');
+        const tsrSlider = document.getElementById('tsrSlider');
+        const cpSlider = document.getElementById('cpSlider');
+        const effSlider = document.getElementById('effSlider');
+
+        const guideVaneToggle = document.getElementById('guideVaneToggle');
+        const endplateToggle = document.getElementById('endplateToggle');
+
+        const heightVal = document.getElementById('heightVal');
+        const radiusVal = document.getElementById('radiusVal');
+        const diaVal = document.getElementById('diaVal');
+        const shaftVal = document.getElementById('shaftVal');
+        const rhoVal = document.getElementById('rhoVal');
+        const tsrVal = document.getElementById('tsrVal');
+        const cpVal = document.getElementById('cpVal');
+        const effVal = document.getElementById('effVal');
+
+        const statPower = document.getElementById('statPower');
+        const statRPM = document.getElementById('statRPM');
+        const statTorque = document.getElementById('statTorque');
+        const statEnergy = document.getElementById('statEnergy');
+
+        const calcEffectiveCp = document.getElementById('calcEffectiveCp');
+        const calcBoostTotal = document.getElementById('calcBoostTotal');
+        const calcArea = document.getElementById('calcArea');
+        const calcPWind = document.getElementById('calcPWind');
+        const calcOmega = document.getElementById('calcOmega');
+
+        const vaneBanner = document.getElementById('vaneBanner');
+        const vaneStatusText = document.getElementById('vaneStatusText');
+        const vaneIndicatorDot = document.getElementById('vaneIndicatorDot');
+
+        const endplateBanner = document.getElementById('endplateBanner');
+        const endplateStatusText = document.getElementById('endplateStatusText');
+        const endplateIndicatorDot = document.getElementById('endplateIndicatorDot');
+
+        // Tab Switching Logic
+        const tabControls = document.getElementById('tabControls');
+        const tabGraphs = document.getElementById('tabGraphs');
+        const controlsContainer = document.getElementById('controlsContainer');
+        const graphsContainer = document.getElementById('graphsContainer');
+
+        tabControls.addEventListener('click', () => {
+            tabControls.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-400 border border-sky-500/30";
+            tabGraphs.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-slate-200 border border-transparent";
+            controlsContainer.classList.remove('hidden');
+            graphsContainer.classList.add('hidden');
+        });
+
+        tabGraphs.addEventListener('click', () => {
+            tabGraphs.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-400 border border-sky-500/30";
+            tabControls.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-slate-200 border border-transparent";
+            graphsContainer.classList.remove('hidden');
+            controlsContainer.classList.add('hidden');
+            updatePowerCurveChart();
+        });
+
+        // Event Listeners for Enhancement Toggles
+        guideVaneToggle.addEventListener('change', (e) => {
+            params.guideVanesActive = e.target.checked;
+            updateEnhancementUIState();
+            if (statorGroup) statorGroup.visible = params.guideVanesActive;
+            recalculatePhysics();
+            updatePowerCurveChart();
+        });
+
+        endplateToggle.addEventListener('change', (e) => {
+            params.endplatesActive = e.target.checked;
+            updateEnhancementUIState();
+            if (topEndplateMesh) topEndplateMesh.visible = params.endplatesActive;
+            if (bottomEndplateMesh) bottomEndplateMesh.visible = params.endplatesActive;
+            recalculatePhysics();
+            updatePowerCurveChart();
+        });
+
+        windSpeedSlider.addEventListener('input', (e) => {
+            params.windSpeed = parseFloat(e.target.value);
+            windSpeedInput.value = params.windSpeed.toFixed(1);
+            recalculatePhysics();
+        });
+
+        windSpeedInput.addEventListener('change', (e) => {
+            let val = parseFloat(e.target.value);
+            if (isNaN(val)) val = 0;
+            val = Math.max(0, Math.min(30, val));
+            params.windSpeed = val;
+            windSpeedSlider.value = val;
+            windSpeedInput.value = val.toFixed(1);
+            recalculatePhysics();
+        });
+
+        heightSlider.addEventListener('input', (e) => {
+            params.height = parseFloat(e.target.value);
+            heightVal.textContent = params.height.toFixed(2);
+            rebuildTurbineMesh();
+            recalculatePhysics();
+        });
+
+        radiusSlider.addEventListener('input', (e) => {
+            params.radius = parseFloat(e.target.value);
+            radiusVal.textContent = params.radius.toFixed(2);
+            diaVal.textContent = (params.radius * 2).toFixed(2);
+            rebuildTurbineMesh();
+            recalculatePhysics();
+        });
+
+        shaftSlider.addEventListener('input', (e) => {
+            params.shaftDia = parseFloat(e.target.value);
+            shaftVal.textContent = params.shaftDia.toFixed(3);
+            rebuildTurbineMesh();
+        });
+
+        rhoSlider.addEventListener('input', (e) => {
+            params.rho = parseFloat(e.target.value);
+            rhoVal.textContent = params.rho.toFixed(3);
+            recalculatePhysics();
+        });
+
+        tsrSlider.addEventListener('input', (e) => {
+            params.tsr = parseFloat(e.target.value);
+            tsrVal.textContent = params.tsr.toFixed(2);
+            recalculatePhysics();
+        });
+
+        cpSlider.addEventListener('input', (e) => {
+            params.cpBaseline = parseFloat(e.target.value);
+            cpVal.textContent = params.cpBaseline.toFixed(2);
+            recalculatePhysics();
+        });
+
+        effSlider.addEventListener('input', (e) => {
+            params.efficiency = parseFloat(e.target.value) / 100;
+            effVal.textContent = Math.round(params.efficiency * 100);
+            recalculatePhysics();
+        });
+
+        function updateEnhancementUIState() {
+            // Guide Vanes UI Banner State
+            if (params.guideVanesActive) {
+                vaneBanner.className = "glass-panel px-3.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-950/20 flex items-center gap-2.5 shadow-lg backdrop-blur-md";
+                vaneIndicatorDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+                vaneStatusText.textContent = `12 Guide Vanes: ACTIVE (+${params.vaneBoostPct}% Cp)`;
+            } else {
+                vaneBanner.className = "glass-panel px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-900/80 flex items-center gap-2.5 shadow-lg backdrop-blur-md";
+                vaneIndicatorDot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+                vaneStatusText.textContent = "12 Guide Vanes: OFF";
+            }
+
+            // Endplates UI Banner State
+            if (params.endplatesActive) {
+                endplateBanner.className = "glass-panel px-3.5 py-1.5 rounded-xl border border-indigo-500/40 bg-indigo-950/20 flex items-center gap-2.5 shadow-lg backdrop-blur-md";
+                endplateIndicatorDot.className = "w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse";
+                endplateStatusText.textContent = `Rotor Endplates: ACTIVE (+${params.endplateBoostPct}% Cp)`;
+            } else {
+                endplateBanner.className = "glass-panel px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-900/80 flex items-center gap-2.5 shadow-lg backdrop-blur-md";
+                endplateIndicatorDot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+                endplateStatusText.textContent = "Rotor Endplates: OFF";
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Physics Calculation Engine Core
+        // -------------------------------------------------------------
+        function recalculatePhysics() {
+            const v = params.windSpeed;
+            const R = params.radius;
+            const H = params.height;
+            const rho = params.rho;
+
+            // Frontal Swept Area (m2) = Height * Outer Diameter (2 * R)
+            calculated.area = 2 * R * H;
+
+            // Calculate Combined Enhancement Multipliers
+            const vaneBoost = params.guideVanesActive ? (params.vaneBoostPct / 100) : 0;
+            const endplateBoost = params.endplatesActive ? (params.endplateBoostPct / 100) : 0;
+            
+            calculated.boostTotalPct = Math.round((vaneBoost + endplateBoost) * 100);
+
+            // Effective Power Coefficient Cp
+            calculated.effectiveCp = params.cpBaseline * (1 + vaneBoost + endplateBoost);
+
+            // Theoretical Wind Power (Watts): P_wind = 0.5 * rho * A * v^3
+            calculated.pWind = 0.5 * rho * calculated.area * Math.pow(v, 3);
+
+            // Aerodynamic Power Captured: P_aero = P_wind * Cp_effective
+            const pAero = calculated.pWind * calculated.effectiveCp;
+
+            // Electrical Output Power: P_elec = P_aero * generator_efficiency
+            calculated.pElec = pAero * params.efficiency;
+
+            // Effective Tip Speed Ratio (slightly increased by funneling & reduced tip losses)
+            const effectiveTSR = params.tsr * (1 + (vaneBoost * 0.25) + (endplateBoost * 0.1));
+
+            // Rotor Tip Speed v_tip = TSR * v_wind
+            const vTip = effectiveTSR * v;
+
+            // Angular Velocity omega = v_tip / R (rad/s)
+            calculated.omega = R > 0 ? (vTip / R) : 0;
+
+            // RPM = (omega * 60) / (2 * PI)
+            calculated.rpm = (calculated.omega * 60) / (2 * Math.PI);
+
+            // Torque T = P_aero / omega (N.m)
+            calculated.torque = calculated.omega > 0 ? (pAero / calculated.omega) : 0;
+
+            // Daily Energy Output (kWh/day)
+            calculated.energyDay = (calculated.pElec / 1000) * 24;
+
+            // Update Telemetry Displays
+            statPower.textContent = calculated.pElec.toFixed(1);
+            statRPM.textContent = Math.round(calculated.rpm);
+            statTorque.textContent = calculated.torque.toFixed(2);
+            statEnergy.textContent = calculated.energyDay.toFixed(2);
+
+            calcEffectiveCp.textContent = calculated.effectiveCp.toFixed(3);
+            calcBoostTotal.textContent = `+${calculated.boostTotalPct}%`;
+            calcArea.textContent = `${calculated.area.toFixed(3)} m²`;
+            calcPWind.textContent = `${calculated.pWind.toFixed(1)} W`;
+            calcOmega.textContent = `${calculated.omega.toFixed(1)} rad/s`;
+        }
+
+        // -------------------------------------------------------------
+        // Three.js 3D Viewport Setup & Geometry Generation
+        // -------------------------------------------------------------
+        let scene, camera, renderer, controls;
+        let turbineGroup, rotorGroup, statorGroup;
+        let topEndplateMesh, bottomEndplateMesh;
+        let windParticleSystem;
+        let materialMetal, materialShaft, materialPlate, materialStator, materialWireframe;
+
+        function initThreeJS() {
+            const container = document.getElementById('threejs-canvas');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x080c14);
+            scene.fog = new THREE.FogExp2(0x080c14, 0.07);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50);
+            camera.position.set(1.8, 1.3, 2.3);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.05;
+            controls.target.set(0, 0.45, 0);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(4, 6, 4);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.8);
+            rimLight.position.set(-4, 3, -4);
+            scene.add(rimLight);
+
+            // Floor Grid
+            const gridHelper = new THREE.GridHelper(10, 30, 0x38bdf8, 0x1e293b);
+            gridHelper.position.y = 0;
+            scene.add(gridHelper);
+
+            const floorGeo = new THREE.PlaneGeometry(10, 10);
+            const floorMat = new THREE.MeshStandardMaterial({ 
+                color: 0x060910, 
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Materials
+            materialMetal = new THREE.MeshStandardMaterial({
+                color: 0xe2e8f0,
+                metalness: 0.85,
+                roughness: 0.2,
+                side: THREE.DoubleSide
+            });
+
+            materialShaft = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                metalness: 0.9,
+                roughness: 0.1
+            });
+
+            materialPlate = new THREE.MeshStandardMaterial({
+                color: 0x6366f1, // Indigo plate matching endplate callout
+                metalness: 0.7,
+                roughness: 0.3
+            });
+
+            materialStator = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b, // Amber gold color matching stator frame
+                metalness: 0.6,
+                roughness: 0.3,
+                side: THREE.DoubleSide
+            });
+
+            materialWireframe = new THREE.MeshBasicMaterial({
+                color: 0x38bdf8,
+                wireframe: true
+            });
+
+            // Build Main Turbine Group
+            turbineGroup = new THREE.Group();
+            scene.add(turbineGroup);
+
+            rebuildTurbineMesh();
+            initParticleSystem();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // Rebuild 3D Turbine Mesh & Guide Vanes
+        function rebuildTurbineMesh() {
+            if (!turbineGroup) return;
+
+            while (turbineGroup.children.length > 0) {
+                const obj = turbineGroup.children[0];
+                turbineGroup.remove(obj);
+            }
+
+            const H = params.height;                 // Rotor Height (0.800m)
+            const R = params.radius;                 // Rotor Radius (0.220m)
+            const shaftRadius = params.shaftDia / 2;       // Shaft radius (0.015m)
+            const plateThick = 0.010;                // Endplate thickness (0.010m)
+
+            const currentMat = params.wireframe ? materialWireframe : materialMetal;
+            const currentShaftMat = params.wireframe ? materialWireframe : materialShaft;
+            const currentPlateMat = params.wireframe ? materialWireframe : materialPlate;
+            const currentStatorMat = params.wireframe ? materialWireframe : materialStator;
+
+            // 1. Base Support Generator
+            const baseGeo = new THREE.CylinderGeometry(shaftRadius * 3.5, shaftRadius * 4.5, 0.06, 32);
+            const baseMesh = new THREE.Mesh(baseGeo, currentPlateMat);
+            baseMesh.position.y = 0.03;
+            baseMesh.castShadow = true;
+            turbineGroup.add(baseMesh);
+
+            // 2. Central Shaft
+            const shaftGeo = new THREE.CylinderGeometry(shaftRadius, shaftRadius, H + 0.12, 32);
+            const shaftMesh = new THREE.Mesh(shaftGeo, currentShaftMat);
+            shaftMesh.position.y = (H + 0.12) / 2;
+            shaftMesh.castShadow = true;
+            turbineGroup.add(shaftMesh);
+
+            // 3. Rotating 2-Bladed Rotor Assembly
+            rotorGroup = new THREE.Group();
+            rotorGroup.position.y = 0.06 + H / 2;
+            turbineGroup.add(rotorGroup);
+
+            // Circular Endplates (Top & Bottom, Diameter = 2*R)
+            const plateGeo = new THREE.CylinderGeometry(R, R, plateThick, 36);
+            
+            topEndplateMesh = new THREE.Mesh(plateGeo, currentPlateMat);
+            topEndplateMesh.position.y = H / 2 - (plateThick / 2);
+            topEndplateMesh.castShadow = true;
+            rotorGroup.add(topEndplateMesh);
+
+            bottomEndplateMesh = new THREE.Mesh(plateGeo, currentPlateMat);
+            bottomEndplateMesh.position.y = -H / 2 + (plateThick / 2);
+            bottomEndplateMesh.castShadow = true;
+            rotorGroup.add(bottomEndplateMesh);
+
+            // Set initial visibility based on toggle
+            topEndplateMesh.visible = params.endplatesActive;
+            bottomEndplateMesh.visible = params.endplatesActive;
+
+            // 4. Exact 2-Bladed Modified Savonius Blades (Image Profile)
+            const bladeHeight = H - (plateThick * 2);
+            const numBlades = 2; // Symmetrically opposing 180 degrees apart
+
+            for (let i = 0; i < numBlades; i++) {
+                const angle = i * Math.PI;
+
+                const shape = new THREE.Shape();
+                const t = 0.005; // 5mm blade wall thickness
+
+                const straightLen = 0.170;  // 0.170m straight tangent section
+                const cupRadius = 0.0492;   // R0.0492m curved lip
+                const offsetY = i === 0 ? 0.020 : 0.035; // Parallel offset clearance from center shaft
+
+                // Outer profile path
+                shape.moveTo(-0.015, offsetY);
+                shape.lineTo(-0.015 + straightLen, offsetY);
+                shape.absarc(-0.015 + straightLen, offsetY + cupRadius, cupRadius, -Math.PI / 2, Math.PI / 4, false);
+                shape.absarc(-0.015 + straightLen, offsetY + cupRadius, cupRadius - t, Math.PI / 4, -Math.PI / 2, true);
+                shape.lineTo(-0.015, offsetY + t);
+                shape.closePath();
+
+                const extrudeSettings = {
+                    steps: 1,
+                    depth: bladeHeight,
+                    bevelEnabled: true,
+                    bevelThickness: 0.001,
+                    bevelSize: 0.001,
+                    bevelSegments: 2
+                };
+
+                const bladeGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                bladeGeo.center();
+
+                const bladeMesh = new THREE.Mesh(bladeGeo, currentMat);
+                bladeMesh.rotation.x = Math.PI / 2;
+                bladeMesh.rotation.z = angle;
+
+                bladeMesh.position.x = Math.cos(angle + Math.PI / 4) * (R * 0.25);
+                bladeMesh.position.z = Math.sin(angle + Math.PI / 4) * (R * 0.25);
+                bladeMesh.position.y = 0;
+
+                bladeMesh.castShadow = true;
+                bladeMesh.receiveShadow = true;
+                rotorGroup.add(bladeMesh);
+            }
+
+            // 5. Outer 12-Blade Guide Vane Stator Frame
+            statorGroup = new THREE.Group();
+            statorGroup.position.y = 0.06 + H / 2;
+            turbineGroup.add(statorGroup);
+
+            const statorInnerR = R * 1.43; // ~0.315m radius
+            const statorOuterR = R * 1.77; // ~0.390m radius
+
+            const ringGeo = new THREE.RingGeometry(statorInnerR, statorOuterR, 48);
+            
+            const topRing = new THREE.Mesh(ringGeo, currentStatorMat);
+            topRing.rotation.x = -Math.PI / 2;
+            topRing.position.y = H / 2 + 0.01;
+            statorGroup.add(topRing);
+
+            const bottomRing = new THREE.Mesh(ringGeo, currentStatorMat);
+            bottomRing.rotation.x = -Math.PI / 2;
+            bottomRing.position.y = -H / 2 - 0.01;
+            statorGroup.add(bottomRing);
+
+            // 12 Stationary Deflector Vanes
+            const numVanes = 12;
+            for (let v = 0; v < numVanes; v++) {
+                const vaneAngle = (v * Math.PI * 2) / numVanes; // 30 deg intervals
+
+                const vaneShape = new THREE.Shape();
+                const vaneLen = statorOuterR - statorInnerR;
+                
+                vaneShape.moveTo(0, 0);
+                vaneShape.quadraticCurveTo(vaneLen * 0.5, 0.03, vaneLen, 0.05);
+                vaneShape.lineTo(vaneLen, 0.05 + 0.005);
+                vaneShape.quadraticCurveTo(vaneLen * 0.5, 0.03 + 0.005, 0, 0.005);
+                vaneShape.closePath();
+
+                const vaneExtrude = { steps: 1, depth: H, bevelEnabled: false };
+                const vaneGeo = new THREE.ExtrudeGeometry(vaneShape, vaneExtrude);
+                vaneGeo.center();
+
+                const vaneMesh = new THREE.Mesh(vaneGeo, currentStatorMat);
+                vaneMesh.rotation.x = Math.PI / 2;
+                vaneMesh.rotation.z = vaneAngle + (Math.PI / 8);
+
+                vaneMesh.position.x = Math.cos(vaneAngle) * ((statorInnerR + statorOuterR) / 2);
+                vaneMesh.position.z = Math.sin(vaneAngle) * ((statorInnerR + statorOuterR) / 2);
+                vaneMesh.position.y = 0;
+
+                vaneMesh.castShadow = true;
+                statorGroup.add(vaneMesh);
+            }
+
+            statorGroup.visible = params.guideVanesActive;
+        }
+
+        // Particle Wind Simulation
+        function initParticleSystem() {
+            const particleCount = 400;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const speeds = new Float32Array(particleCount);
+
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 6;
+                positions[i * 3 + 1] = Math.random() * 1.5;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 3;
+                speeds[i] = 0.8 + Math.random() * 0.4;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('speed', new THREE.BufferAttribute(speeds, 1));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 16;
+            canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+            grad.addColorStop(0, 'rgba(56, 189, 248, 0.9)');
+            grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 16, 16);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.PointsMaterial({
+                size: 0.045,
+                map: texture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            windParticleSystem = new THREE.Points(geometry, material);
+            scene.add(windParticleSystem);
+        }
+
+        function animateParticles(delta) {
+            if (!windParticleSystem || !params.particles) return;
+
+            const positions = windParticleSystem.geometry.attributes.position.array;
+            const speeds = windParticleSystem.geometry.attributes.speed.array;
+            const count = positions.length / 3;
+
+            const windFactor = params.windSpeed * delta * 0.65;
+
+            for (let i = 0; i < count; i++) {
+                positions[i * 3] += speeds[i] * windFactor;
+
+                if (params.guideVanesActive && Math.abs(positions[i * 3]) < 0.45 && Math.abs(positions[i * 3 + 2]) < 0.45) {
+                    positions[i * 3] += speeds[i] * windFactor * 0.4;
+                }
+
+                if (positions[i * 3] > 3) {
+                    positions[i * 3] = -3;
+                    positions[i * 3 + 1] = Math.random() * (params.height * 1.3);
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * 3;
+                }
+            }
+
+            windParticleSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // Viewport Header Controls
+        document.getElementById('toggleWireframe').addEventListener('click', () => {
+            params.wireframe = !params.wireframe;
+            document.getElementById('wireframeBtnText').textContent = params.wireframe ? "Shaded Solid View" : "Blueprint Wireframe";
+            rebuildTurbineMesh();
+        });
+
+        document.getElementById('toggleParticles').addEventListener('click', () => {
+            params.particles = !params.particles;
+            windParticleSystem.visible = params.particles;
+            document.getElementById('particlesBtnText').textContent = params.particles ? "Wind Stream: ON" : "Wind Stream: OFF";
+        });
+
+        document.getElementById('resetCameraBtn').addEventListener('click', () => {
+            camera.position.set(1.8, 1.3, 2.3);
+            controls.target.set(0, params.height / 2, 0);
+            controls.update();
+        });
+
+        function onWindowResize() {
+            const container = document.getElementById('threejs-canvas');
+            if (!container) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // Render Animation Loop
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+
+            // Rotate 2-Bladed Rotor Assembly
+            if (rotorGroup && calculated.omega > 0) {
+                rotorGroup.rotation.y += calculated.omega * delta;
+            }
+
+            animateParticles(delta);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // -------------------------------------------------------------
+        // Telemetry Chart Integration (Chart.js)
+        // -------------------------------------------------------------
+        let powerCurveChart, liveRpmChart;
+        const rpmHistoryData = Array(20).fill(0);
+        const rpmLabels = Array(20).fill('');
+
+        function initCharts() {
+            const ctx1 = document.getElementById('powerCurveChart').getContext('2d');
+            powerCurveChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Full Config (Vanes + Endplates)',
+                            data: [],
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Current Selection',
+                            data: [],
+                            borderColor: '#f59e0b',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Bare Rotor (No Enhancements)',
+                            data: [],
+                            borderColor: '#64748b',
+                            borderDash: [4, 4],
+                            borderWidth: 1.5,
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            display: true,
+                            labels: { color: '#94a3b8', font: { size: 10 } }
+                        } 
+                    },
+                    scales: {
+                        x: { 
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } },
+                            title: { display: true, text: 'Wind Speed (m/s)', color: '#64748b', font: { size: 10 } }
+                        },
+                        y: { 
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } },
+                            title: { display: true, text: 'Power Output (W)', color: '#64748b', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+
+            const ctx2 = document.getElementById('liveRpmChart').getContext('2d');
+            liveRpmChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: rpmLabels,
+                    datasets: [{
+                        label: 'RPM',
+                        data: rpmHistoryData,
+                        borderColor: '#34d399',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { 
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+
+            updatePowerCurveChart();
+        }
+
+        function updatePowerCurveChart() {
+            if (!powerCurveChart) return;
+
+            const speeds = [];
+            const powersFull = [];
+            const powersCurrent = [];
+            const powersBare = [];
+
+            const R = params.radius;
+            const H = params.height;
+            const area = 2 * R * H;
+
+            const fullCp = params.cpBaseline * (1 + (params.vaneBoostPct / 100) + (params.endplateBoostPct / 100));
+            const currentCp = calculated.effectiveCp;
+            const bareCp = params.cpBaseline;
+
+            for (let v = 0; v <= 25; v += 1) {
+                speeds.push(v);
+                const pWind = 0.5 * params.rho * area * Math.pow(v, 3);
+                
+                powersFull.push((pWind * fullCp * params.efficiency).toFixed(1));
+                powersCurrent.push((pWind * currentCp * params.efficiency).toFixed(1));
+                powersBare.push((pWind * bareCp * params.efficiency).toFixed(1));
+            }
+
+            powerCurveChart.data.labels = speeds;
+            powerCurveChart.data.datasets[0].data = powersFull;
+            powerCurveChart.data.datasets[1].data = powersCurrent;
+            powerCurveChart.data.datasets[2].data = powersBare;
+            powerCurveChart.update();
+        }
+
+        function pushTelemetryGraphData(currentRpm) {
+            rpmHistoryData.push(currentRpm);
+            rpmHistoryData.shift();
+            liveRpmChart.update();
+        }
+
+        setInterval(() => {
+            if (graphsContainer && !graphsContainer.classList.contains('hidden')) {
+                pushTelemetryGraphData(calculated.rpm);
+            }
+        }, 500);
+
+        // Application Startup
+        window.onload = function() {
+            initThreeJS();
+            updateEnhancementUIState();
+            recalculatePhysics();
+            initCharts();
+            animate();
+        };
+
+    </script>
+</body>
+</html>
